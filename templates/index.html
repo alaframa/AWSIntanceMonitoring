@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AWS Monitoring section</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <h1>AWS MONITORING</h1>
+                <small> Copyright Alaf Ramadhan @2024</small>
+            </div>
+        </div>
+        <br><br>
+        <div class="row">
+            <div class="col-1">
+                <p id="location">Location</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-1">
+                <p id="date">Date</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-1">
+                <p id="time">Time</p>
+            </div>
+        </div>
+
+        <br>
+        <br>
+        <div class="row">
+            <div class="col-1">
+                <b>State</b>
+            </div>
+            <div class="col-2">
+                <b>Instace ID</b>
+            </div>
+            <div class="col-2">
+                <b>Private IP</b>
+            </div>
+            <div class="col-2">
+                <b>Public IP</b>
+            </div>
+            <div class="col-2">
+                <b>Action</b>
+            </div>
+        </div>
+
+        <div id="data" class="row">
+
+        </div>
+
+    </div>
+    <script>
+        // Global variable for host
+        const host = "http://localhost:5000";  // Replace with your actual host
+
+        function updateDateTime() {
+            // Location
+            const location = "Jakarta, Indonesia";
+            document.getElementById('location').innerText = location;
+
+            // Get current time
+            const now = new Date();
+
+            // Options for date formatting
+            const dateOptions = { month: 'short', day: 'numeric' };
+            const formattedDate = now.toLocaleDateString('en-US', dateOptions);
+
+            // Format the time
+            const timeOptions = { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true };
+            const formattedTime = now.toLocaleTimeString('en-US', timeOptions);
+
+            // Update date and time in HTML
+            document.getElementById('date').innerText = formattedDate;
+            document.getElementById('time').innerText = formattedTime;
+        }
+
+
+
+        // Function to make the GET request and update the div
+        function updateInstanceData() {
+            // Send a GET request to host/data
+            fetch(`${host}/data`)
+                .then(response => response.json())
+                .then(data => {
+                    // Select the 'data' div
+                    const dataDiv = document.getElementById('data');
+
+                    // Clear the existing content
+                    dataDiv.innerHTML = '';
+
+                    // Loop through the response and create the required HTML structure
+                    data.forEach(instance => {
+                        const stateDiv = `<div class='row'>
+        <div class="col-1"><p>${instance['State']}</p></div>`;
+                        const instanceIdDiv = `<div class="col-2"><p>${instance['Instance ID']}</p></div>`;
+
+                        // Add 'onclick' event to copy IPs to clipboard
+                        const privateIpDiv = `<div class="col-2">
+        <p class="clickable-ip" onclick="copyToClipboard('${instance['Private IP']}')">${instance['Private IP']}</p>
+    </div>`;
+                        const publicIpDiv = `<div class="col-2">
+        <p class="clickable-ip" onclick="copyToClipboard('${instance['Public IP']}')">${instance['Public IP']}</p>
+    </div>`;
+
+                        // Generate actions based on instance state
+                        let actionDiv = `<div class="col-4" style="display: flex; gap: 10px;">`;
+
+                        switch (instance['State']) {
+                            case 'running':
+                                // Show the Stop button only when running
+                                actionDiv += `<p class="col-1" onclick="stop('${instance['Instance ID']}', '${instance['State']}')" style="cursor: pointer;">Stop</p>`;
+                                break;
+                            case 'stopped':
+                                // Show the Start button only when stopped
+                                actionDiv += `<p class="col-1" onclick="start('${instance['Instance ID']}', '${instance['State']}')" style="cursor: pointer;">Start</p>`;
+                                break;
+                            case 'stopping':
+                                // Show 'Stopping' when the instance is stopping
+                                actionDiv += `<p class="col-1">Stopping</p>`;
+                                break;
+                            case 'pending':
+                                // Show 'Starting' when the instance is pending
+                                actionDiv += `<p class="col-1">Starting</p>`;
+                                break;
+                            case 'terminated':
+                                // Show nothing for terminated instances
+                                actionDiv += ``;
+                                break;
+                            default:
+                                break;
+                        }
+                        actionDiv += `</div></div>`;
+
+
+
+                        // Append the new HTML content to the dataDiv
+                        dataDiv.innerHTML += stateDiv + instanceIdDiv + privateIpDiv + publicIpDiv + actionDiv;
+                    });
+                })
+                .catch(error => {
+                    console.error("Error fetching data:", error);
+                });
+        }
+        //fucntion to start instance
+        function start(instanceID, state) {
+            console.log(`Instance ID: ${instanceID}, State: ${state}`);
+
+            // Only proceed with fetch if the state is 'stopped'
+            if (state === 'stopped') {
+                fetch(`/action/start/${instanceID}`)
+                    .then(response => response.text())
+                    .then(data => console.log(data))
+                    .catch(error => console.error('Error:', error));
+            } else {
+                console.log('Start action can only be performed if the state is "stopped".');
+            }
+        }
+
+        function stop(instanceID, state) {
+            console.log(`Instance ID: ${instanceID}, State: ${state}`);
+
+            // Only proceed with fetch if the state is 'running'
+            if (state === 'running') {
+                fetch(`/action/stop/${instanceID}`)
+                    .then(response => response.text())
+                    .then(data => console.log(data))
+                    .catch(error => console.error('Error:', error));
+            } else {
+                console.log('Stop action can only be performed if the state is "running".');
+            }
+        }
+
+
+
+        // Function to copy IP to clipboard
+
+        function copyToClipboard(ip) {
+            navigator.clipboard.writeText(ip).then(function () {
+                // alert('IP copied to clipboard: ' + ip);
+            }, function (err) {
+                console.error('Could not copy IP: ', err);
+            });
+        }
+
+        // Call the function on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            updateInstanceData();  // Initial call when the page loads
+            updateDateTime();
+
+            // Set an interval to refresh data every 5 seconds
+            setInterval(updateInstanceData, 5000);
+            setInterval(updateDateTime, 1000);
+
+        });
+
+
+    </script>
+
+    <!-- <style>
+        /* Optional: Styling to make the IP clickable */
+        .clickable-ip {
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+        }
+    </style> -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
